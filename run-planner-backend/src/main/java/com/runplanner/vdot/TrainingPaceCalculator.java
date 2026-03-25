@@ -1,10 +1,13 @@
 package com.runplanner.vdot;
 
+import org.springframework.stereotype.Component;
+
 import java.util.EnumMap;
 import java.util.Map;
 
 import static com.runplanner.vdot.VdotConstants.*;
 
+@Component
 public class TrainingPaceCalculator {
 
     private static final Map<TrainingZone, double[]> ZONE_PCT_VO2MAX = Map.of(

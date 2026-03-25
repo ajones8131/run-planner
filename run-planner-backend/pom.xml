@@ -16,7 +16,7 @@
     <name>run-planner-backend</name>
 
     <properties>
-        <java.version>25</java.version>
+        <java.version>21</java.version>
         <jjwt.version>0.12.6</jjwt.version>
         <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
     </properties>
@@ -91,6 +91,8 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
+                    <mainClass>com.runplanner.RunPlannerApplication</mainClass>
+                    <executable>${env.JAVA_HOME}/bin/java</executable>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>

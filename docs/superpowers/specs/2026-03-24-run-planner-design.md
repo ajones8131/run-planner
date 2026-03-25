@@ -72,7 +72,14 @@ Future features (not in initial scope): natural language coaching commentary, co
 
 ## Authentication
 
-JWT-based authentication with email and password. Tokens are issued on login and must be included in the `Authorization: Bearer <token>` header on all API calls. Refresh token support included. The `users` table stores a hashed password (bcrypt) and email as the login identity.
+JWT-based authentication with email and password. Tokens are included in the `Authorization: Bearer <token>` header on all API calls. The `users` table stores a hashed password (bcrypt) and email as the login identity.
+
+**Token lifecycle:**
+- Access token TTL: 1 hour
+- Refresh token TTL: 30 days
+- Refresh tokens are stored in a `refresh_tokens` table (`id`, `user_id`, `token_hash`, `expires_at`, `revoked`) to support revocation
+- On logout or password change, all refresh tokens for the user are revoked
+- Endpoint: `POST /api/v1/auth/refresh` — accepts a refresh token, returns a new access token and refresh token (rotation)
 
 ---
 
@@ -132,11 +139,13 @@ entity vdot_history {
     * id : uuid <<PK>>
     --
     * user_id : uuid <<FK>>
-    * triggering_workout_id : uuid <<FK>>
+    triggering_workout_id : uuid <<FK, nullable>>
+    triggering_snapshot_id : uuid <<FK, nullable>>
     previous_vdot : float
     new_vdot : float
     calculated_at : timestamp
     flagged : boolean
+    accepted : boolean
 }
 
 entity training_plans {
@@ -184,7 +193,8 @@ goal_races ||--o| training_plans : "drives"
 training_plans ||--o{ planned_workouts : "contains"
 planned_workouts ||--o| workout_matches : "matched by"
 workouts ||--o| workout_matches : "fulfills"
-workouts ||--o{ vdot_history : "triggers"
+workouts |o--o{ vdot_history : "triggers"
+health_snapshots |o--o{ vdot_history : "triggers"
 @enduml
 ```
 
@@ -201,6 +211,10 @@ workouts ||--o{ vdot_history : "triggers"
 - `ARCHIVED` — superseded by a new plan or manually dismissed
 
 Only one `training_plan` per user may have status `ACTIVE` at a time (enforced at the service layer).
+
+### workout_matches constraints
+
+`workout_matches` enforces unique constraints at the database level on both `planned_workout_id` and `workout_id` independently — a planned workout can match at most one real workout, and a real workout can satisfy at most one planned workout. Matching is idempotent: re-running the matcher on already-matched workouts produces no duplicate rows.
 
 ### Compliance score formula
 
@@ -223,6 +237,75 @@ The adjustment engine triggers a plan recalculation when any of the following co
 
 Minor adjustments (pace nudges only, no structural change) are applied when:
 - Three of the last five workouts have `compliance_score` between 0.6 and 0.75
+
+### Unmatched workouts
+
+When a synced workout has no matching `planned_workout` within ±1 day of `scheduled_date`, it is stored in `workouts` without a `workout_matches` row. It still participates in VDOT recalculation if it meets the criteria. The adjustment engine treats an unmatched workout on the same day as a scheduled non-REST workout as a missed workout for threshold evaluation purposes.
+
+### VO2 max snapshot selection
+
+When calculating initial VDOT from `health_snapshots`, the most recent snapshot by `recorded_at` is used. If multiple snapshots share the same timestamp, the highest `vo2max_estimate` is selected. `vdot_history` rows triggered by a snapshot reference `triggering_snapshot_id` (not `triggering_workout_id`); exactly one of the two FK fields is non-null per row.
+
+### Claude prompt contract
+
+**Plan generation prompt inputs (sent as JSON):**
+```json
+{
+  "current_vdot": 52.3,
+  "weeks_to_race": 16,
+  "goal_finish_seconds": 5400,
+  "race_distance_meters": 21097,
+  "recent_weekly_mileage_km": 55.0,
+  "max_hr": 185
+}
+```
+
+**Required Claude response fields:**
+```json
+{
+  "weekly_plans": [
+    {
+      "week_number": 1,
+      "total_distance_km": 55.0,
+      "workouts": [
+        { "day_of_week": 1, "workout_type": "EASY", "distance_km": 10.0 },
+        { "day_of_week": 3, "workout_type": "THRESHOLD", "distance_km": 8.0 },
+        { "day_of_week": 6, "workout_type": "LONG", "distance_km": 18.0 },
+        { "day_of_week": 0, "workout_type": "REST", "distance_km": 0 }
+      ]
+    }
+  ]
+}
+```
+
+Claude provides distance and workout type per day; the VDOT engine then calculates target pace ranges and HR zones. If Claude's response is missing required fields or fails to parse, the math fallback generates a standard Daniels periodization pattern (base → quality → peak → taper).
+
+---
+
+## API Surface
+
+All endpoints are prefixed `/api/v1/`. All requests (except auth endpoints) require `Authorization: Bearer <token>`.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/auth/register` | Create account; returns access + refresh tokens |
+| `POST` | `/auth/login` | Authenticate; returns access + refresh tokens |
+| `POST` | `/auth/refresh` | Exchange refresh token for new token pair |
+| `POST` | `/auth/logout` | Revoke all refresh tokens for the current user |
+| `GET` | `/users/me` | Get current user profile |
+| `PATCH` | `/users/me` | Update profile (name, DOB, max HR, resting HR, units) |
+| `POST` | `/goal-races` | Create a goal race |
+| `GET` | `/goal-races` | List goal races for current user |
+| `PATCH` | `/goal-races/{id}` | Update a goal race (date, goal time, status) |
+| `POST` | `/health/sync` | Ingest Apple Health data (workouts + snapshots); triggers matching, adjustment, and VDOT recalculation; returns updated active plan |
+| `GET` | `/plans/active` | Get active training plan with all planned workouts |
+| `GET` | `/plans/{id}` | Get a specific plan |
+| `GET` | `/plans/{id}/workouts` | List all planned workouts in a plan |
+| `GET` | `/workouts` | List ingested workouts (supports `?since=` timestamp filter) |
+| `GET` | `/workouts/{id}` | Get a single workout with its match and compliance score |
+| `GET` | `/vdot/history` | List VDOT history for current user |
+| `POST` | `/vdot/history/{id}/accept` | Accept a flagged VDOT change |
+| `POST` | `/vdot/history/{id}/dismiss` | Dismiss a flagged VDOT change |
 
 ---
 
@@ -256,7 +339,7 @@ Triggered during sync when an ingested workout meets all recalculation criteria 
 - **Apple Health sync** — best-effort; partial data accepted and stored, never a hard failure; duplicate workouts silently skipped via `apple_health_uuid` uniqueness
 - **Missing VO2 max** — falls back to prompting the user to enter a recent race time or estimated goal pace to seed initial VDOT
 - **Claude API failure** — non-blocking; backend generates plan using pure VDOT math rules as fallback; retries Claude enrichment asynchronously on next sync
-- **VDOT anomaly** — changes >5 points flagged in `vdot_history` and not auto-applied; user notified in app
+- **VDOT anomaly** — changes >5 points are written to `vdot_history` with `flagged = true` and `accepted = false`; `users.current_vdot` is not updated; the app surfaces a prompt asking the user to accept or dismiss; on acceptance `accepted = true` and `current_vdot` is updated; on dismissal the row is kept for audit but `current_vdot` is unchanged; flagged rows are never auto-resolved
 - **Active plan conflict** — service layer rejects creation of a second `ACTIVE` plan; existing plan must be archived first
 
 ---

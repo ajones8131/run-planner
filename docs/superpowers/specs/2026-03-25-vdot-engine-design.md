@@ -80,7 +80,7 @@ Each zone is defined by a %VO2max range:
 |------|--------------|
 | E | 59–74% |
 | M | 75–84% |
-| T | 83–88% |
+| T | 83–88% (intentional overlap with M) |
 | I | 95–100% |
 | R | 105–110% |
 
@@ -105,6 +105,10 @@ For each zone boundary: compute the equivalent oxygen cost from the %VO2max and 
 | accepted | boolean | false if flagged, true otherwise |
 
 Constraint: exactly one of `triggeringWorkoutId` or `triggeringSnapshotId` is non-null per row.
+
+**Note on triggering IDs:** These are opaque UUIDs stored for traceability — no foreign key constraints in the database. The `workouts` and `health_snapshots` tables do not exist yet and will be created by the health sync feature. The VDOT history layer stores the IDs without referential integrity so it can be built and tested independently.
+
+**Initial VDOT:** When recording the first VDOT calculation for a user (no prior history), `previousVdot` is set to `0.0` to indicate no prior value.
 
 ### Migration: `V4__create_vdot_history.sql`
 
@@ -138,7 +142,7 @@ CREATE INDEX idx_vdot_history_user_id ON vdot_history(user_id);
 - `recordCalculation(User, double previousVdot, double newVdot, UUID triggeringWorkoutId, UUID triggeringSnapshotId)` — creates entry; auto-flags if abs(newVdot - previousVdot) > 5; sets `accepted = false` when flagged, `accepted = true` otherwise
 - `getEffectiveVdot(User)` → `Optional<Double>` — most recent accepted entry's `newVdot`
 - `acceptFlagged(User, UUID historyId)` — sets `accepted = true`; throws if not flagged or not owned by user
-- `dismissFlagged(User, UUID historyId)` — no-op on accepted status; effective VDOT unchanged; throws if not owned by user
+- `dismissFlagged(User, UUID historyId)` — effective VDOT unchanged; throws if entry is not flagged or not owned by user
 
 ---
 

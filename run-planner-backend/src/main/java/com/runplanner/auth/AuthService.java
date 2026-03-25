@@ -13,8 +13,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.HexFormat;
 import java.util.UUID;
 
 @Service
@@ -79,9 +83,19 @@ public class AuthService {
         String rawRefreshToken = UUID.randomUUID().toString();
         refreshTokenRepository.save(RefreshToken.builder()
             .user(user)
-            .tokenHash(rawRefreshToken)
+            .tokenHash(sha256Hex(rawRefreshToken))
             .expiresAt(Instant.now().plus(refreshTokenExpiryDays, ChronoUnit.DAYS))
             .build());
         return new AuthResponse(accessToken, rawRefreshToken);
+    }
+
+    static String sha256Hex(String input) {
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256")
+                .digest(input.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
     }
 }

@@ -32,4 +32,45 @@ public class VdotCalculator {
 
         return oxygenCost / pctVO2max;
     }
+
+    /**
+     * Predicts race finish time for a given VDOT and distance using binary search.
+     *
+     * @param vdotScore      the VDOT score (must be between MIN_VDOT and MAX_VDOT)
+     * @param distanceMeters race distance in meters
+     * @return predicted finish time in seconds
+     */
+    public double predictRaceTime(double vdotScore, double distanceMeters) {
+        if (vdotScore < MIN_VDOT || vdotScore > MAX_VDOT) {
+            throw new IllegalArgumentException(
+                    "VDOT must be between " + MIN_VDOT + " and " + MAX_VDOT);
+        }
+        if (distanceMeters <= 0) {
+            throw new IllegalArgumentException("Distance must be positive");
+        }
+
+        // Binary search: find time where calculateVdot(distance, time) == vdotScore.
+        // With the Daniels formula, faster time → higher VDOT (monotone over race paces).
+        // Bounds span a wide enough range to cover VDOT 30–85 for any race distance.
+        double lowSeconds = distanceMeters / 1000.0 * 60;    // 1 min/km (fastest plausible)
+        double highSeconds = distanceMeters / 1000.0 * 900;  // 15 min/km (slowest plausible)
+
+        for (int i = 0; i < 100; i++) {
+            double midSeconds = (lowSeconds + highSeconds) / 2.0;
+            double computedVdot = calculateVdot(distanceMeters, midSeconds);
+
+            if (Math.abs(computedVdot - vdotScore) < 0.001) {
+                return midSeconds;
+            }
+
+            // Faster time → higher VDOT; if computed VDOT exceeds target, time is too fast.
+            if (computedVdot > vdotScore) {
+                lowSeconds = midSeconds;
+            } else {
+                highSeconds = midSeconds;
+            }
+        }
+
+        return (lowSeconds + highSeconds) / 2.0;
+    }
 }

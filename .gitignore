@@ -1,8 +1,9 @@
 # Worktrees
-.worktrees/
+.worktrees
 
 # Superpowers brainstorm sessions
-.superpowers/
+.superpowers
 
+out
 .idea
 .tool-versions

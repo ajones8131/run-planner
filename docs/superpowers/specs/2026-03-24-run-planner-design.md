@@ -61,7 +61,7 @@ A recalculation is triggered when an ingested workout meets all of the following
 - Distance is within 5% of a supported race distance (5K, 10K, half, marathon) or a user-defined custom race distance
 - Duration is at least 10 minutes
 
-On recalculation, the new VDOT score and the triggering workout ID are recorded in `vdot_history`. The `users.current_vdot` field is updated to reflect the new score. If a recalculation produces a VDOT change of more than 5 points in a single workout, it is flagged for review rather than auto-applied (likely a data anomaly).
+On recalculation, the new VDOT score and the triggering source are recorded in `vdot_history`. The current VDOT is always derived as the most recent accepted (non-flagged or flagged+accepted) entry in `vdot_history`. If a recalculation produces a VDOT change of more than 5 points in a single workout, it is flagged for review rather than auto-applied (likely a data anomaly).
 
 **AI role (Claude API)**
 Claude is used for structural plan decisions — macro weekly mileage progression, taper timing, workout variety balance — and for determining whether and how to adjust plans after performance deviations. Prompts return structured JSON. The VDOT math engine provides all target paces; Claude does not override pace calculations. All Claude calls are non-blocking with pure VDOT math fallback if the call fails.
@@ -94,9 +94,7 @@ entity users {
     password_hash : varchar
     name : varchar
     date_of_birth : date
-    resting_hr : int
     max_hr : int
-    current_vdot : float
     preferred_units : varchar
     last_synced_at : timestamp
 }
@@ -293,7 +291,7 @@ All endpoints are prefixed `/api/v1/`. All requests (except auth endpoints) requ
 | `POST` | `/auth/refresh` | Exchange refresh token for new token pair |
 | `POST` | `/auth/logout` | Revoke all refresh tokens for the current user |
 | `GET` | `/users/me` | Get current user profile |
-| `PATCH` | `/users/me` | Update profile (name, DOB, max HR, resting HR, units) |
+| `PATCH` | `/users/me` | Update profile (name, DOB, max HR, units) |
 | `POST` | `/goal-races` | Create a goal race |
 | `GET` | `/goal-races` | List goal races for current user |
 | `PATCH` | `/goal-races/{id}` | Update a goal race (date, goal time, status) |
@@ -330,7 +328,7 @@ All endpoints are prefixed `/api/v1/`. All requests (except auth endpoints) requ
 7. Updated plan returned to app (adjustments are applied before response, not deferred)
 
 ### VDOT recalculation
-Triggered during sync when an ingested workout meets all recalculation criteria (see Training Methodology). The new VDOT updates `users.current_vdot` and is recorded in `vdot_history`. All remaining `planned_workouts` in the active plan have their target paces recalculated using the new VDOT score.
+Triggered during sync when an ingested workout meets all recalculation criteria (see Training Methodology). The result is recorded in `vdot_history`; the effective VDOT is always the most recent accepted entry in that table. All remaining `planned_workouts` in the active plan have their target paces recalculated using the new effective VDOT score.
 
 ---
 
@@ -339,7 +337,7 @@ Triggered during sync when an ingested workout meets all recalculation criteria 
 - **Apple Health sync** — best-effort; partial data accepted and stored, never a hard failure; duplicate workouts silently skipped via `apple_health_uuid` uniqueness
 - **Missing VO2 max** — falls back to prompting the user to enter a recent race time or estimated goal pace to seed initial VDOT
 - **Claude API failure** — non-blocking; backend generates plan using pure VDOT math rules as fallback; retries Claude enrichment asynchronously on next sync
-- **VDOT anomaly** — changes >5 points are written to `vdot_history` with `flagged = true` and `accepted = false`; `users.current_vdot` is not updated; the app surfaces a prompt asking the user to accept or dismiss; on acceptance `accepted = true` and `current_vdot` is updated; on dismissal the row is kept for audit but `current_vdot` is unchanged; flagged rows are never auto-resolved
+- **VDOT anomaly** — changes >5 points are written to `vdot_history` with `flagged = true` and `accepted = false`; the effective VDOT remains the previous accepted entry; the app surfaces a prompt asking the user to accept or dismiss; on acceptance `accepted = true` and the new entry becomes the effective VDOT; on dismissal the row is kept for audit but the effective VDOT is unchanged; flagged rows are never auto-resolved
 - **Active plan conflict** — service layer rejects creation of a second `ACTIVE` plan; existing plan must be archived first
 
 ---

@@ -44,7 +44,7 @@ public class GoalRaceService {
         var race = goalRaceRepository.findByIdAndUser(id, user)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Goal race not found"));
         if (request.raceDate() != null) race.setRaceDate(request.raceDate());
-        race.setGoalFinishSeconds(request.goalFinishSeconds());
+        if (request.goalFinishSeconds() != null) race.setGoalFinishSeconds(request.goalFinishSeconds());
         if (request.status() != null) race.setStatus(request.status());
         return GoalRaceResponse.from(goalRaceRepository.save(race));
     }

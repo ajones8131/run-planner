@@ -35,7 +35,7 @@ public class GoalRaceController {
     @PatchMapping("/{id}")
     public GoalRaceResponse update(@AuthenticationPrincipal User user,
                                    @PathVariable UUID id,
-                                   @RequestBody UpdateGoalRaceRequest request) {
+                                   @Valid @RequestBody UpdateGoalRaceRequest request) {
         return goalRaceService.update(user, id, request);
     }
 }

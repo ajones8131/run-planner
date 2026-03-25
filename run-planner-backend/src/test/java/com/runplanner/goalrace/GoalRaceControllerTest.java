@@ -94,4 +94,33 @@ class GoalRaceControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("ARCHIVED"));
     }
+
+    @Test
+    void listGoalRaces_returns401WithoutAuth() throws Exception {
+        mockMvc.perform(get("/api/v1/goal-races"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void updateGoalRace_returns401WithoutAuth() throws Exception {
+        mockMvc.perform(patch("/api/v1/goal-races/" + UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void updateGoalRace_returns404ForForeignId() throws Exception {
+        var user = user();
+        when(goalRaceService.update(any(), any(), any()))
+            .thenThrow(new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND));
+
+        mockMvc.perform(patch("/api/v1/goal-races/" + UUID.randomUUID())
+                .with(SecurityMockMvcRequestPostProcessors.user(user))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(
+                    new UpdateGoalRaceRequest(null, null, null))))
+            .andExpect(status().isNotFound());
+    }
 }

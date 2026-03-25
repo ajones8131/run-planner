@@ -164,7 +164,7 @@ entity planned_workouts {
     week_number : int
     day_of_week : int
     scheduled_date : date
-    workout_type : varchar <<EASY|MARATHON|THRESHOLD|INTERVAL|REPETITION|REST>>
+    workout_type : varchar <<EASY|LONG|MARATHON|THRESHOLD|INTERVAL|REPETITION|REST>>
     target_distance_meters : float
     target_pace_min_per_km : float
     target_pace_max_per_km : float

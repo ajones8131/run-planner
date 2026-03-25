@@ -152,7 +152,9 @@ Daniels proportions within each week:
 
 ### Pace ranges
 
-Calculated using existing `TrainingPaceCalculator.calculate(vdotScore)` which returns `VdotScore` with `Map<TrainingZone, PaceRange>`. The generator maps `WorkoutType` to `TrainingZone` to look up min/max pace per km.
+Calculated using existing `TrainingPaceCalculator.calculate(vdotScore)` which returns `Map<TrainingZone, PaceRange>`. The generator maps `WorkoutType` to `TrainingZone` to look up min/max pace per km. `TrainingPaceCalculator` is a dependency of `TrainingPlanGenerator` (not the service layer).
+
+**Cross-cutting change:** `TrainingPaceCalculator` needs `@Component` added (same pattern as `VdotCalculator`) so it can be injected into the generator.
 
 ### Constants
 
@@ -194,7 +196,7 @@ Sets plan status to ARCHIVED. Throws 400 if plan is not ACTIVE. Throws 404 if no
 
 ### Dependencies
 
-`TrainingPlanRepository`, `PlannedWorkoutRepository`, `TrainingPlanGenerator`, `GoalRaceRepository`, `VdotHistoryService`, `TrainingPaceCalculator`
+`TrainingPlanRepository`, `PlannedWorkoutRepository`, `TrainingPlanGenerator`, `GoalRaceRepository`, `VdotHistoryService`
 
 ## REST Endpoints
 

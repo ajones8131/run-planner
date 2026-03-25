@@ -35,7 +35,7 @@ Fields: `id` (UUID, generated), `user` (ManyToOne lazy FK), `vo2maxEstimate` (Do
 
 ## HealthSnapshotRepository
 
-- `Optional<HealthSnapshot> findFirstByUserOrderByRecordedAtDesc(User)` — most recent snapshot
+- `Optional<HealthSnapshot> findFirstByUserAndVo2maxEstimateIsNotNullOrderByRecordedAtDesc(User)` — most recent snapshot with VO2max
 - `List<HealthSnapshot> findAllByUserOrderByRecordedAtDesc(User)` — list all
 
 ## Request DTO
@@ -104,7 +104,7 @@ Orchestrator in `com.runplanner.health`. Linear flow, delegates to existing serv
 
 3. **Ingest health snapshots:** Save each `HealthSnapshotSyncItem` as a `HealthSnapshot` entity via `HealthSnapshotRepository`. Track saved count.
 
-4. **VDOT from VO2max:** After saving snapshots, find the most recent snapshot with a non-null `vo2maxEstimate` via `HealthSnapshotRepository.findFirstByUserOrderByRecordedAtDesc()`. If found and vo2maxEstimate is non-null, compare to current effective VDOT. If different (or no existing VDOT), record via `VdotHistoryService.recordCalculation()` with `triggeringSnapshotId`. VO2max ≈ VDOT in Daniels' model — `vo2maxEstimate` is used directly as the VDOT score, no conversion needed.
+4. **VDOT from VO2max:** After saving snapshots, find the most recent snapshot with a non-null `vo2maxEstimate` via `HealthSnapshotRepository.findFirstByUserAndVo2maxEstimateIsNotNullOrderByRecordedAtDesc()`. If found, get the current effective VDOT via `VdotHistoryService.getEffectiveVdot(user)`. If the VO2max differs from the current effective VDOT (or no existing VDOT), record via `VdotHistoryService.recordCalculation(user, previousVdot, newVdot, null, snapshotId)` where `previousVdot` is the effective VDOT or `0.0` if none exists and `newVdot` is the `vo2maxEstimate`. VO2max ≈ VDOT in Daniels' model — `vo2maxEstimate` is used directly as the VDOT score, no conversion needed.
 
 5. **Update `lastSyncedAt`:** Set `user.lastSyncedAt = Instant.now()` and save via `UserRepository`.
 
@@ -116,7 +116,7 @@ Orchestrator in `com.runplanner.health`. Linear flow, delegates to existing serv
 
 ### Error handling
 
-Best-effort — if one workout fails to save, continue with the rest. Duplicates are silently skipped. The overall sync never fails hard.
+Best-effort — if one workout fails to save, continue with the rest. Workout duplicates are silently skipped via `source`/`sourceId` check. Health snapshots are not deduplicated — duplicate snapshots are harmless since only the most recent with a VO2max value is used for VDOT calculation. The overall sync never fails hard.
 
 ## Testing Strategy
 

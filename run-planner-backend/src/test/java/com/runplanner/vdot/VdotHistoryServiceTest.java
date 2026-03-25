@@ -34,6 +34,21 @@ class VdotHistoryServiceTest {
     // --- recordCalculation ---
 
     @Test
+    void recordCalculation_bothTriggerIdsNull_throwsIllegalArgumentException() {
+        assertThatThrownBy(() -> service.recordCalculation(user(), 50.0, 52.0, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Exactly one of triggeringWorkoutId or triggeringSnapshotId must be provided");
+    }
+
+    @Test
+    void recordCalculation_bothTriggerIdsProvided_throwsIllegalArgumentException() {
+        assertThatThrownBy(() -> service.recordCalculation(
+                        user(), 50.0, 52.0, UUID.randomUUID(), UUID.randomUUID()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Exactly one of triggeringWorkoutId or triggeringSnapshotId must be provided");
+    }
+
+    @Test
     void recordCalculation_normalDelta_createsUnflaggedAcceptedEntry() {
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         User user = user();

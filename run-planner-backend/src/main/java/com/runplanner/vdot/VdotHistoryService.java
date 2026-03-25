@@ -22,6 +22,10 @@ public class VdotHistoryService {
     @Transactional
     public VdotHistory recordCalculation(User user, double previousVdot, double newVdot,
                                          UUID triggeringWorkoutId, UUID triggeringSnapshotId) {
+        if ((triggeringWorkoutId == null) == (triggeringSnapshotId == null)) {
+            throw new IllegalArgumentException(
+                    "Exactly one of triggeringWorkoutId or triggeringSnapshotId must be provided");
+        }
         boolean isInitial = previousVdot == 0.0;
         boolean shouldFlag = !isInitial && Math.abs(newVdot - previousVdot) > FLAGGING_THRESHOLD;
 

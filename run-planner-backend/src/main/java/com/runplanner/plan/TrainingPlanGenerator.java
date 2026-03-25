@@ -20,6 +20,9 @@ public class TrainingPlanGenerator {
 
     private final TrainingPaceCalculator trainingPaceCalculator;
 
+    // V1: raceDistanceMeters is accepted for API compatibility but not yet used in mileage
+    // calculation. Currently weekly mileage is derived purely from VDOT. Future enhancement:
+    // scale mileage based on target race distance (e.g., marathon plans need higher volume).
     public List<PlannedWorkout> generate(double vdot, int raceDistanceMeters,
                                           LocalDate raceDate, LocalDate startDate) {
         int totalWeeks = (int) ChronoUnit.WEEKS.between(startDate, raceDate);
@@ -88,6 +91,10 @@ public class TrainingPlanGenerator {
         int total = base + quality + peak + taper;
         if (total > totalWeeks) {
             taper -= (total - totalWeeks);
+            if (taper < MIN_WEEKS_PER_PHASE) {
+                throw new IllegalArgumentException(
+                        "Plan too short for 4-phase periodization with " + totalWeeks + " weeks");
+            }
         } else if (total < totalWeeks) {
             base += (totalWeeks - total);
         }

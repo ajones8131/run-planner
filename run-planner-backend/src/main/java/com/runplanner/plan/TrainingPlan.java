@@ -29,6 +29,9 @@ public class TrainingPlan {
     @JoinColumn(name = "goal_race_id", nullable = false)
     private GoalRace goalRace;
 
+    @Column(name = "goal_race_id", insertable = false, updatable = false)
+    private UUID goalRaceId;
+
     @Column(nullable = false)
     private LocalDate startDate;
 

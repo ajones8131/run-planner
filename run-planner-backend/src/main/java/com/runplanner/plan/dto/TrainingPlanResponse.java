@@ -21,7 +21,7 @@ public record TrainingPlanResponse(
     public static TrainingPlanResponse from(TrainingPlan plan) {
         return new TrainingPlanResponse(
                 plan.getId(),
-                plan.getGoalRace().getId(),
+                plan.getGoalRaceId(),
                 plan.getStartDate(),
                 plan.getEndDate(),
                 plan.getStatus().name(),

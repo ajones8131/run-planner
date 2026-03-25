@@ -14,7 +14,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,6 +35,7 @@ class TrainingPlanServiceTest {
     @Mock private TrainingPlanGenerator trainingPlanGenerator;
     @Mock private GoalRaceRepository goalRaceRepository;
     @Mock private VdotHistoryService vdotHistoryService;
+    @Mock private Clock clock;
 
     @InjectMocks private TrainingPlanService service;
 
@@ -52,8 +56,14 @@ class TrainingPlanServiceTest {
 
     // --- generate ---
 
+    private void stubClock() {
+        when(clock.instant()).thenReturn(Instant.parse("2026-03-25T12:00:00Z"));
+        when(clock.getZone()).thenReturn(ZoneId.of("UTC"));
+    }
+
     @Test
     void generate_happyPath_createsPlanAndWorkouts() {
+        stubClock();
         User user = user();
         GoalRace race = goalRace(user);
         when(goalRaceRepository.findByIdAndUser(race.getId(), user)).thenReturn(Optional.of(race));

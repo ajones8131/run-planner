@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -25,6 +26,7 @@ public class TrainingPlanService {
     private final TrainingPlanGenerator trainingPlanGenerator;
     private final GoalRaceRepository goalRaceRepository;
     private final VdotHistoryService vdotHistoryService;
+    private final Clock clock;
 
     @Transactional
     public TrainingPlanResponse generate(User user, UUID goalRaceId) {
@@ -41,7 +43,7 @@ public class TrainingPlanService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_REQUEST, "No VDOT score available. Complete a qualifying workout first."));
 
-        LocalDate startDate = LocalDate.now();
+        LocalDate startDate = LocalDate.now(clock);
         TrainingPlan plan = trainingPlanRepository.save(TrainingPlan.builder()
                 .user(user)
                 .goalRace(race)
@@ -88,6 +90,10 @@ public class TrainingPlanService {
     public List<PlannedWorkoutResponse> findPlannedWorkouts(User user, UUID planId,
                                                              LocalDate from, LocalDate to) {
         TrainingPlan plan = findOwnedPlan(user, planId);
+        if ((from == null) != (to == null)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Both 'from' and 'to' date parameters must be provided together");
+        }
         List<PlannedWorkout> workouts;
         if (from != null && to != null) {
             workouts = plannedWorkoutRepository

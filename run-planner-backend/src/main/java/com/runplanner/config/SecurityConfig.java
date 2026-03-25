@@ -37,6 +37,8 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .exceptionHandling(e -> e.authenticationEntryPoint(
+                (request, response, authException) -> response.sendError(401, "Unauthorized")))
             .build();
     }
 

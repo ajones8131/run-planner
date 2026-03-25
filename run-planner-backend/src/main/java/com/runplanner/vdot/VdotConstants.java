@@ -7,10 +7,10 @@ public final class VdotConstants {
     public static final double MIN_VDOT = 30.0;
     public static final double MAX_VDOT = 85.0;
 
-    // Oxygen cost formula coefficients
+    // Oxygen cost formula coefficients (curve-fit to Daniels published VDOT tables)
     public static final double O2_INTERCEPT = -4.60;
-    public static final double O2_LINEAR = 0.182258;
-    public static final double O2_QUADRATIC = 0.000104;
+    public static final double O2_LINEAR = 0.67921;
+    public static final double O2_QUADRATIC = -0.001998;
 
     // %VO2max formula coefficients
     public static final double PCT_BASE = 0.8;

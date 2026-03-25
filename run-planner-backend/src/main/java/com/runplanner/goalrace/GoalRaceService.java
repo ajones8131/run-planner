@@ -31,6 +31,7 @@ public class GoalRaceService {
         return GoalRaceResponse.from(goalRaceRepository.save(race));
     }
 
+    @Transactional(readOnly = true)
     public List<GoalRaceResponse> findAll(User user) {
         return goalRaceRepository.findAllByUserOrderByRaceDateDesc(user)
             .stream()
@@ -43,7 +44,7 @@ public class GoalRaceService {
         var race = goalRaceRepository.findByIdAndUser(id, user)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Goal race not found"));
         if (request.raceDate() != null) race.setRaceDate(request.raceDate());
-        if (request.goalFinishSeconds() != null) race.setGoalFinishSeconds(request.goalFinishSeconds());
+        race.setGoalFinishSeconds(request.goalFinishSeconds());
         if (request.status() != null) race.setStatus(request.status());
         return GoalRaceResponse.from(goalRaceRepository.save(race));
     }

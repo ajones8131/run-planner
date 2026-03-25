@@ -72,6 +72,7 @@ class GoalRaceServiceTest {
             new UpdateGoalRaceRequest(LocalDate.of(2026, 9, 1), 1200, GoalRaceStatus.ARCHIVED));
 
         assertThat(updated.raceDate()).isEqualTo(LocalDate.of(2026, 9, 1));
+        assertThat(updated.goalFinishSeconds()).isEqualTo(1200);
         assertThat(updated.status()).isEqualTo(GoalRaceStatus.ARCHIVED);
     }
 
@@ -81,6 +82,7 @@ class GoalRaceServiceTest {
         when(goalRaceRepository.findByIdAndUser(any(), any())).thenReturn(Optional.empty());
         assertThatThrownBy(() -> goalRaceService.update(user, UUID.randomUUID(),
             new UpdateGoalRaceRequest(null, null, null)))
-            .isInstanceOf(ResponseStatusException.class);
+            .isInstanceOf(ResponseStatusException.class)
+            .satisfies(e -> assertThat(((ResponseStatusException) e).getStatusCode().value()).isEqualTo(404));
     }
 }

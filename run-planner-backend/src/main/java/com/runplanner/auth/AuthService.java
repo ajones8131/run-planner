@@ -58,7 +58,8 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse refresh(String rawToken, String tokenHash) {
+    public AuthResponse refresh(String rawToken) {
+        var tokenHash = sha256Hex(rawToken);
         var stored = refreshTokenRepository.findByTokenHash(tokenHash)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token"));
         if (stored.isRevoked()) {

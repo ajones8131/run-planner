@@ -89,7 +89,7 @@ class AuthControllerTest {
 
     @Test
     void refresh_returns200WithNewTokens() throws Exception {
-        when(authService.refresh(any(), any()))
+        when(authService.refresh(any()))
             .thenReturn(new AuthResponse("new-access", "new-refresh"));
 
         mockMvc.perform(post("/api/v1/auth/refresh")

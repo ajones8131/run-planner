@@ -30,13 +30,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             return;
         }
         var token = authHeader.substring(7);
-        if (jwtService.isValid(token)) {
-            var userId = jwtService.extractUserId(token);
-            userRepository.findById(userId).ifPresent(user -> {
-                var auth = new UsernamePasswordAuthenticationToken(user, null, List.of());
-                SecurityContextHolder.getContext().setAuthentication(auth);
-            });
+        if (!jwtService.isValid(token)) {
+            chain.doFilter(request, response);
+            return;
         }
+        var userId = jwtService.extractUserId(token);
+        var userOpt = userRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "User not found");
+            return;
+        }
+        var auth = new UsernamePasswordAuthenticationToken(userOpt.get(), null, List.of());
+        SecurityContextHolder.getContext().setAuthentication(auth);
         chain.doFilter(request, response);
     }
 }

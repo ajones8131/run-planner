@@ -90,35 +90,41 @@ class AuthServiceTest {
     @Test
     void refresh_returnsNewTokensForValidRefreshToken() {
         var user = User.builder().id(UUID.randomUUID()).build();
+        var rawToken = "raw-token";
+        var tokenHash = AuthService.sha256Hex(rawToken);
         var stored = RefreshToken.builder()
-            .user(user).tokenHash("hashed-token")
+            .user(user).tokenHash(tokenHash)
             .expiresAt(Instant.now().plusSeconds(3600))
             .revoked(false).build();
-        when(refreshTokenRepository.findByTokenHash("hashed-token")).thenReturn(Optional.of(stored));
+        when(refreshTokenRepository.findByTokenHash(tokenHash)).thenReturn(Optional.of(stored));
         when(jwtService.generateAccessToken(user.getId())).thenReturn("new-access");
         when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        var response = authService.refresh("raw-token", "hashed-token");
+        var response = authService.refresh(rawToken);
 
         assertThat(response.accessToken()).isEqualTo("new-access");
-        assertThat(stored.isRevoked()).isTrue(); // old token rotated out
+        assertThat(stored.isRevoked()).isTrue();
     }
 
     @Test
     void refresh_throwsForRevokedToken() {
+        var rawToken = "raw";
+        var tokenHash = AuthService.sha256Hex(rawToken);
         var stored = RefreshToken.builder()
-            .tokenHash("h").expiresAt(Instant.now().plusSeconds(3600)).revoked(true).build();
-        when(refreshTokenRepository.findByTokenHash("h")).thenReturn(Optional.of(stored));
-        assertThatThrownBy(() -> authService.refresh("raw", "h"))
+            .tokenHash(tokenHash).expiresAt(Instant.now().plusSeconds(3600)).revoked(true).build();
+        when(refreshTokenRepository.findByTokenHash(tokenHash)).thenReturn(Optional.of(stored));
+        assertThatThrownBy(() -> authService.refresh(rawToken))
             .isInstanceOf(ResponseStatusException.class);
     }
 
     @Test
     void refresh_throwsForExpiredToken() {
+        var rawToken = "raw";
+        var tokenHash = AuthService.sha256Hex(rawToken);
         var stored = RefreshToken.builder()
-            .tokenHash("h").expiresAt(Instant.now().minusSeconds(1)).revoked(false).build();
-        when(refreshTokenRepository.findByTokenHash("h")).thenReturn(Optional.of(stored));
-        assertThatThrownBy(() -> authService.refresh("raw", "h"))
+            .tokenHash(tokenHash).expiresAt(Instant.now().minusSeconds(1)).revoked(false).build();
+        when(refreshTokenRepository.findByTokenHash(tokenHash)).thenReturn(Optional.of(stored));
+        assertThatThrownBy(() -> authService.refresh(rawToken))
             .isInstanceOf(ResponseStatusException.class);
     }
 

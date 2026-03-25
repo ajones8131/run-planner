@@ -3,3 +3,6 @@
 
 # Superpowers brainstorm sessions
 .superpowers/
+
+.idea
+.tool-versions

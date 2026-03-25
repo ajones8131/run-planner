@@ -1,7 +1,10 @@
 package com.runplanner.vdot;
 
+import org.springframework.stereotype.Component;
+
 import static com.runplanner.vdot.VdotConstants.*;
 
+@Component
 public class VdotCalculator {
 
     /**

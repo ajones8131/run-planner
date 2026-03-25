@@ -27,4 +27,9 @@ public final class VdotConstants {
 
     // VDOT history flagging threshold
     public static final double FLAGGING_THRESHOLD = 5.0;
+
+    // VDOT recalculation trigger thresholds
+    public static final int MIN_DURATION_SECONDS = 600;
+    public static final double HR_THRESHOLD_PERCENT = 0.9;
+    public static final double DISTANCE_TOLERANCE = 0.05;
 }

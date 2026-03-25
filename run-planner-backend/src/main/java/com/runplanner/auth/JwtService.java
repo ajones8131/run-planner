@@ -1,8 +1,11 @@
 package com.runplanner.auth;
 
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -13,18 +16,28 @@ import java.util.UUID;
 @Service
 public class JwtService {
 
-    @Value("${jwt.secret}")
-    private String secret;
+    private final String secret;
+    private final long accessTokenExpirySeconds;
+    private SecretKey signingKey;
 
-    @Value("${jwt.access-token-expiry-seconds:3600}")
-    private long accessTokenExpirySeconds;
+    public JwtService(@Value("${jwt.secret}") String secret,
+                      @Value("${jwt.access-token-expiry-seconds:3600}") long accessTokenExpirySeconds) {
+        this.secret = secret;
+        this.accessTokenExpirySeconds = accessTokenExpirySeconds;
+    }
+
+    @PostConstruct
+    public void init() {
+        this.signingKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+    }
 
     public String generateAccessToken(UUID userId) {
         return Jwts.builder()
             .subject(userId.toString())
+            .issuer("run-planner")
             .issuedAt(new Date())
             .expiration(new Date(System.currentTimeMillis() + accessTokenExpirySeconds * 1_000))
-            .signWith(signingKey())
+            .signWith(signingKey)
             .compact();
     }
 
@@ -43,13 +56,10 @@ public class JwtService {
 
     private Claims parseClaims(String token) {
         return Jwts.parser()
-            .verifyWith(signingKey())
+            .verifyWith(signingKey)
+            .requireIssuer("run-planner")
             .build()
             .parseSignedClaims(token)
             .getPayload();
-    }
-
-    private SecretKey signingKey() {
-        return Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
     }
 }

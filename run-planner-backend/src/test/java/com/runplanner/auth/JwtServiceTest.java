@@ -2,7 +2,6 @@ package com.runplanner.auth;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.UUID;
 
@@ -14,11 +13,10 @@ class JwtServiceTest {
 
     @BeforeEach
     void setUp() {
-        jwtService = new JwtService();
         // Base64-encoded 256-bit key for tests
-        ReflectionTestUtils.setField(jwtService, "secret",
-            "dGVzdC1zZWNyZXQta2V5LXRoYXQtaXMtbG9uZy1lbm91Z2gtZm9yLUhTMjU2");
-        ReflectionTestUtils.setField(jwtService, "accessTokenExpirySeconds", 3600L);
+        String secret = "dGVzdC1zZWNyZXQta2V5LXRoYXQtaXMtbG9uZy1lbm91Z2gtZm9yLUhTMjU2";
+        jwtService = new JwtService(secret, 3600L);
+        jwtService.init();
     }
 
     @Test
@@ -36,6 +34,12 @@ class JwtServiceTest {
     }
 
     @Test
+    void extractUserId_throwsOnInvalidToken() {
+        assertThatThrownBy(() -> jwtService.extractUserId("not.a.token"))
+            .isInstanceOf(Exception.class);
+    }
+
+    @Test
     void isValid_returnsTrueForFreshToken() {
         String token = jwtService.generateAccessToken(UUID.randomUUID());
         assertThat(jwtService.isValid(token)).isTrue();
@@ -50,8 +54,14 @@ class JwtServiceTest {
 
     @Test
     void isValid_returnsFalseForExpiredToken() {
-        ReflectionTestUtils.setField(jwtService, "accessTokenExpirySeconds", -1L);
-        String token = jwtService.generateAccessToken(UUID.randomUUID());
+        JwtService expiredService = new JwtService("dGVzdC1zZWNyZXQta2V5LXRoYXQtaXMtbG9uZy1lbm91Z2gtZm9yLUhTMjU2", -1L);
+        expiredService.init();
+        String token = expiredService.generateAccessToken(UUID.randomUUID());
         assertThat(jwtService.isValid(token)).isFalse();
+    }
+
+    @Test
+    void isValid_returnsFalseForNullToken() {
+        assertThat(jwtService.isValid(null)).isFalse();
     }
 }

@@ -123,14 +123,14 @@ entity workouts {
     * id : uuid <<PK>>
     --
     * user_id : uuid <<FK>>
-    apple_health_uuid : varchar <<unique>>
+    source : varchar
+    source_id : varchar <<unique per source>>
     started_at : timestamp
     distance_meters : float
     duration_seconds : int
     avg_hr : int
     max_hr : int
     elevation_gain : float
-    source : varchar
 }
 
 entity vdot_history {
@@ -320,7 +320,7 @@ All endpoints are prefixed `/api/v1/`. All requests (except auth endpoints) requ
 
 ### Ongoing sync (on app open)
 1. Flutter app reads new workouts from Apple Health since `users.last_synced_at` → sends to `/api/v1/health/sync`
-2. Backend stores raw workouts, deduplicating by `apple_health_uuid`; updates `last_synced_at`
+2. Backend stores raw workouts, deduplicating by `(source, source_id)`; updates `last_synced_at`
 3. Backend attempts to match each new workout to a `planned_workout` within ±1 day of `scheduled_date`
 4. `compliance_score` is calculated for each match
 5. Adjustment engine evaluates recent compliance against thresholds; if triggered, calls Claude to decide restructure vs. pace adjustment
@@ -334,7 +334,7 @@ Triggered during sync when an ingested workout meets all recalculation criteria 
 
 ## Error Handling
 
-- **Apple Health sync** — best-effort; partial data accepted and stored, never a hard failure; duplicate workouts silently skipped via `apple_health_uuid` uniqueness
+- **Apple Health sync** — best-effort; partial data accepted and stored, never a hard failure; duplicate workouts silently skipped via `(source, source_id)` uniqueness
 - **Missing VO2 max** — falls back to prompting the user to enter a recent race time or estimated goal pace to seed initial VDOT
 - **Claude API failure** — non-blocking; backend generates plan using pure VDOT math rules as fallback; retries Claude enrichment asynchronously on next sync
 - **VDOT anomaly** — changes >5 points are written to `vdot_history` with `flagged = true` and `accepted = false`; the effective VDOT remains the previous accepted entry; the app surfaces a prompt asking the user to accept or dismiss; on acceptance `accepted = true` and the new entry becomes the effective VDOT; on dismissal the row is kept for audit but the effective VDOT is unchanged; flagged rows are never auto-resolved

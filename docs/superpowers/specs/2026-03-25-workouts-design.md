@@ -58,8 +58,8 @@ New service in `com.runplanner.vdot` that owns VDOT recalculation criteria evalu
 
 **Recalculation criteria** (all must be met):
 1. Duration >= 10 minutes (`MIN_DURATION_SECONDS = 600`)
-2. Average HR >= 90% of user's max HR (`HR_THRESHOLD_PERCENT = 0.9`); skipped if either value is null
-3. Distance within 5% of a standard race distance (5K, 10K, half marathon, marathon) or any of the user's active goal race distances (`DISTANCE_TOLERANCE = 0.05`)
+2. Average HR >= 90% of user's max HR (`HR_THRESHOLD_PERCENT = 0.9`); gate is skipped entirely if either `workout.avgHr` or `user.maxHr` is null
+3. Distance within 5% of a standard race distance (5K, 10K, half marathon, marathon) or any of the user's active goal race distances (`DISTANCE_TOLERANCE = 0.05`). Active goal races are fetched via a new `GoalRaceRepository.findAllByUserAndStatus(User, GoalRaceStatus)` query method.
 
 When all criteria are met, calculates VDOT via `VdotCalculator.calculateVdot()`, retrieves the current effective VDOT via `VdotHistoryService.getEffectiveVdot()`, and records the result via `VdotHistoryService.recordCalculation()` with the workout ID as the triggering source.
 
@@ -68,7 +68,11 @@ When all criteria are met, calculates VDOT via `VdotCalculator.calculateVdot()`,
 - `HR_THRESHOLD_PERCENT = 0.9`
 - `DISTANCE_TOLERANCE = 0.05`
 
-**Dependencies**: `VdotCalculator`, `VdotHistoryService`, `GoalRaceRepository`.
+**Dependencies**: `VdotCalculator` (register as `@Component`), `VdotHistoryService`, `GoalRaceRepository`.
+
+**Cross-cutting changes**:
+- `VdotCalculator`: add `@Component` annotation so it can be injected as a Spring bean
+- `GoalRaceRepository`: add `findAllByUserAndStatus(User, GoalRaceStatus)` method
 
 ## WorkoutService
 

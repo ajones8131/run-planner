@@ -6,6 +6,7 @@ import com.runplanner.user.User;
 import com.runplanner.workout.Workout;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +22,7 @@ public class VdotRecalculationService {
     private final VdotHistoryService vdotHistoryService;
     private final GoalRaceRepository goalRaceRepository;
 
+    @Transactional
     public Optional<VdotHistory> evaluate(Workout workout) {
         User user = workout.getUser();
 

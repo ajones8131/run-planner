@@ -12,4 +12,9 @@ public interface PlannedWorkoutRepository extends JpaRepository<PlannedWorkout, 
 
     List<PlannedWorkout> findAllByTrainingPlanAndScheduledDateBetweenOrderByScheduledDate(
             TrainingPlan trainingPlan, LocalDate from, LocalDate to);
+
+    void deleteAllByTrainingPlanAndScheduledDateGreaterThanEqual(TrainingPlan trainingPlan, LocalDate date);
+
+    List<PlannedWorkout> findAllByTrainingPlanAndScheduledDateGreaterThanEqualOrderByScheduledDate(
+            TrainingPlan trainingPlan, LocalDate date);
 }

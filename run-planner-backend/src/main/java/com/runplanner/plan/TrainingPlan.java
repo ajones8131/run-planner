@@ -50,4 +50,6 @@ public class TrainingPlan {
     @Column(nullable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();
+
+    private Double lastAdjustmentVdot;
 }

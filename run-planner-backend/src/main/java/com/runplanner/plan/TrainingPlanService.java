@@ -49,6 +49,7 @@ public class TrainingPlanService {
                 .goalRace(race)
                 .startDate(startDate)
                 .endDate(race.getRaceDate())
+                .lastAdjustmentVdot(vdot)
                 .build());
 
         List<PlannedWorkout> workouts = trainingPlanGenerator.generate(

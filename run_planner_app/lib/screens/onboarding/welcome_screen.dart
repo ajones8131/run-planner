@@ -4,7 +4,7 @@ import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
 
 class WelcomeScreen extends StatefulWidget {
-  final VoidCallback onAuthenticated;
+  final Future<void> Function() onAuthenticated;
   const WelcomeScreen({super.key, required this.onAuthenticated});
 
   @override
@@ -45,16 +45,19 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           _nameController.text.trim().isNotEmpty ? _nameController.text.trim() : null,
         );
       }
-      widget.onAuthenticated();
     } catch (e) {
+      debugPrint('AUTH ERROR: $e');
+      debugPrint('AUTH ERROR TYPE: ${e.runtimeType}');
       setState(() {
         _error = _isLogin
             ? 'Invalid email or password'
             : 'Registration failed. Try a different email.';
       });
+      return;
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+    if (mounted) await widget.onAuthenticated();
   }
 
   @override

@@ -41,9 +41,14 @@ class _GoalRaceWizardScreenState extends State<GoalRaceWizardScreen> {
     super.dispose();
   }
 
+  String? _error;
+
   Future<void> _generatePlan() async {
     if (_selectedDistance == null || _raceDate == null) return;
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final planProvider = context.read<PlanProvider>();
       int? goalFinishSeconds;
@@ -60,10 +65,18 @@ class _GoalRaceWizardScreenState extends State<GoalRaceWizardScreen> {
         ),
       );
       await planProvider.createPlan(race.id);
-      widget.onComplete();
+    } catch (e) {
+      debugPrint('PLAN GENERATION ERROR: $e');
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to generate plan. Make sure you have workout history so we can calculate your fitness level.';
+        });
+      }
+      return;
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+    if (mounted) widget.onComplete();
   }
 
   @override
@@ -213,6 +226,10 @@ class _GoalRaceWizardScreenState extends State<GoalRaceWizardScreen> {
         if (_hoursController.text.isNotEmpty || _minutesController.text.isNotEmpty)
           _buildSummaryRow('Goal', '${_hoursController.text}h ${_minutesController.text}m'),
         if (vdot != null) _buildSummaryRow('Current VDOT', vdot.toStringAsFixed(1)),
+        if (_error != null) ...[
+          const SizedBox(height: AppTheme.spacingMd),
+          Text(_error!, style: const TextStyle(color: AppTheme.error), textAlign: TextAlign.center),
+        ],
         const Spacer(),
         ElevatedButton(
           onPressed: _loading ? null : _generatePlan,

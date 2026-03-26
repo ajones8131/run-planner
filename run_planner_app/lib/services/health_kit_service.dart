@@ -1,22 +1,30 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:health/health.dart';
 import '../models/health_sync.dart';
 
 class HealthKitService {
-  final Health _health = Health();
+  Health? _health;
+
+  bool get _isSupported => !kIsWeb && Platform.isIOS;
+
+  Health get _instance => _health ??= Health();
 
   Future<bool> requestPermissions() async {
-    // TODO: Add HealthDataType.VO2MAX when available in the health package (not present in v11.x).
+    if (!_isSupported) return false;
     final types = [
       HealthDataType.WORKOUT,
       HealthDataType.HEART_RATE,
       HealthDataType.RESTING_HEART_RATE,
     ];
     final permissions = types.map((_) => HealthDataAccess.READ).toList();
-    return await _health.requestAuthorization(types, permissions: permissions);
+    return await _instance.requestAuthorization(types, permissions: permissions);
   }
 
   Future<List<WorkoutSyncItem>> getWorkouts(DateTime since) async {
-    final healthData = await _health.getHealthDataFromTypes(
+    if (!_isSupported) return [];
+    final healthData = await _instance.getHealthDataFromTypes(
       types: [HealthDataType.WORKOUT],
       startTime: since,
       endTime: DateTime.now(),
@@ -40,10 +48,9 @@ class HealthKitService {
         .toList();
   }
 
-  // TODO: Replace RESTING_HEART_RATE with VO2MAX once health package v12+ supports it.
-  // Until then, we sync resting heart rate as a proxy health snapshot.
   Future<HealthSnapshotSyncItem?> getLatestHealthSnapshot(DateTime since) async {
-    final data = await _health.getHealthDataFromTypes(
+    if (!_isSupported) return null;
+    final data = await _instance.getHealthDataFromTypes(
       types: [HealthDataType.RESTING_HEART_RATE],
       startTime: since,
       endTime: DateTime.now(),

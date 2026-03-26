@@ -1,9 +1,14 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
+import 'models/planned_workout.dart';
+import 'models/workout.dart';
 import 'providers/auth_provider.dart';
 import 'providers/plan_provider.dart';
 import 'providers/sync_provider.dart';
@@ -32,6 +37,7 @@ import 'services/workout_service.dart';
 import 'theme/app_theme.dart';
 
 /// Adapts FlutterSecureStorage to our TokenStorage interface.
+/// Used on iOS where Keychain is available.
 class SecureTokenStorage implements TokenStorage {
   final _storage = const FlutterSecureStorage();
 
@@ -43,6 +49,27 @@ class SecureTokenStorage implements TokenStorage {
 
   @override
   Future<void> delete(String key) => _storage.delete(key: key);
+}
+
+/// In-memory token storage for platforms where Keychain isn't available (macOS debug, web).
+/// Tokens won't persist across app restarts, but that's fine for development.
+class InMemoryTokenStorage implements TokenStorage {
+  final Map<String, String> _store = {};
+
+  @override
+  Future<String?> read(String key) async => _store[key];
+
+  @override
+  Future<void> write(String key, String value) async => _store[key] = value;
+
+  @override
+  Future<void> delete(String key) async => _store.remove(key);
+}
+
+TokenStorage _createTokenStorage() {
+  if (kIsWeb) return InMemoryTokenStorage();
+  if (Platform.isIOS) return SecureTokenStorage();
+  return InMemoryTokenStorage();
 }
 
 void main() {
@@ -64,7 +91,7 @@ class _RunPlannerAppState extends State<RunPlannerApp> {
   void initState() {
     super.initState();
     final httpClient = http.Client();
-    final tokenStorage = SecureTokenStorage();
+    final tokenStorage = _createTokenStorage();
 
     // Public API client (no auth header) for login/register
     final publicApiClient = ApiClient(httpClient: httpClient, getToken: () => null);
@@ -95,7 +122,23 @@ class _RunPlannerAppState extends State<RunPlannerApp> {
         return null;
       },
       routes: [
-        GoRoute(path: '/welcome', builder: (context, state) => WelcomeScreen(onAuthenticated: () => context.go('/profile-setup'))),
+        GoRoute(path: '/welcome', builder: (context, state) {
+          final planProvider = context.read<PlanProvider>();
+          return WelcomeScreen(
+            onAuthenticated: () async {
+              // Check if returning user with active plan
+              try {
+                await planProvider.loadActivePlan();
+                if (planProvider.hasActivePlan) {
+                  _router.go('/');
+                  return;
+                }
+              } catch (_) {}
+              // New user or no plan — start onboarding
+              _router.go('/profile-setup');
+            },
+          );
+        }),
         GoRoute(path: '/profile-setup', builder: (context, state) => ProfileSetupScreen(onComplete: () => context.go('/health-permission'))),
         GoRoute(path: '/health-permission', builder: (context, state) => HealthPermissionScreen(onComplete: () => context.go('/initial-sync'))),
         GoRoute(path: '/initial-sync', builder: (context, state) => InitialSyncScreen(onComplete: () => context.go('/goal-race-wizard'))),
@@ -105,8 +148,8 @@ class _RunPlannerAppState extends State<RunPlannerApp> {
           builder: (context, state, child) => _MainShell(child: child),
           routes: [
             GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
-            GoRoute(path: '/plan', builder: (context, state) => PlanScreen(onWorkoutTap: (workout) => context.push('/workout-detail'))),
-            GoRoute(path: '/history', builder: (context, state) => HistoryScreen(onWorkoutTap: (workout) => context.push('/workout-detail'))),
+            GoRoute(path: '/plan', builder: (context, state) => PlanScreen(onWorkoutTap: (workout) => context.push('/workout-detail', extra: workout))),
+            GoRoute(path: '/history', builder: (context, state) => HistoryScreen(onWorkoutTap: (workout) => context.push('/workout-detail', extra: workout))),
             GoRoute(path: '/profile', builder: (context, state) => ProfileScreen(
               onEditProfile: () => context.push('/edit-profile'),
               onNewGoalRace: () => context.push('/goal-race-wizard'),
@@ -114,7 +157,16 @@ class _RunPlannerAppState extends State<RunPlannerApp> {
             )),
           ],
         ),
-        GoRoute(path: '/workout-detail', builder: (context, state) => const WorkoutDetailScreen()),
+        GoRoute(path: '/workout-detail', builder: (context, state) {
+          final extra = state.extra;
+          if (extra is PlannedWorkoutResponse) {
+            return WorkoutDetailScreen(plannedWorkout: extra);
+          }
+          if (extra is WorkoutResponse) {
+            return WorkoutDetailScreen(actualWorkout: extra);
+          }
+          return const WorkoutDetailScreen();
+        }),
         GoRoute(path: '/edit-profile', builder: (context, state) => EditProfileScreen(onSaved: () => context.pop())),
       ],
     );

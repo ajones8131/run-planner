@@ -39,9 +39,10 @@ public class TrainingPlanService {
                     "An active plan already exists. Archive it before creating a new one.");
         }
 
-        double vdot = vdotHistoryService.getEffectiveVdot(user)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "No VDOT score available. Complete a qualifying workout first."));
+        // default for testing manually for now
+        double vdot = vdotHistoryService.getEffectiveVdot(user).orElse(34.0);
+//                .orElseThrow(() -> new ResponseStatusException(
+//                        HttpStatus.BAD_REQUEST, "No VDOT score available. Complete a qualifying workout first."));
 
         LocalDate startDate = LocalDate.now(clock);
         TrainingPlan plan = trainingPlanRepository.save(TrainingPlan.builder()

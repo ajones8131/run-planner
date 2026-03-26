@@ -47,12 +47,12 @@ Pure logic class with `@Component` in `com.runplanner.adjustment`. No side effec
 1. **Consecutive under-performance:** 2+ consecutive matched planned workouts (ordered by scheduled date) with `compliance_score < 0.6`
 2. **Missed long run:** A planned workout with `WorkoutType.LONG` in `recentUnmatched` that was scheduled within the past 7 days
 3. **VDOT change:** `|currentVdot - lastAdjustmentVdot| > 2.0` (fitness change in either direction)
-4. **Consecutive over-performance:** 2+ consecutive matched planned workouts where actual pace is > 10% faster than target pace midpoint. Actual pace = `workout.durationSeconds / 60.0 / (workout.distanceMeters / 1000.0)`. Target midpoint = `(planned.targetPaceMinPerKm + planned.targetPaceMaxPerKm) / 2.0`. Over-performance = actual pace < midpoint * 0.90.
+4. **Consecutive over-performance:** 2+ consecutive matched planned workouts where actual pace is > 10% faster than target pace midpoint. Only matches with non-null planned paces are considered (skip matches where `targetPaceMinPerKm` or `targetPaceMaxPerKm` is null). Actual pace = `workout.durationSeconds / 60.0 / (workout.distanceMeters / 1000.0)`. Target midpoint = `(planned.targetPaceMinPerKm + planned.targetPaceMaxPerKm) / 2.0`. Over-performance = actual pace < midpoint * 0.90.
 
 ### Minor triggers (only if no major)
 
 5. **Under-performance drift:** 3 of the last 5 matched planned workouts have `compliance_score` between 0.6 and 0.75
-6. **Over-performance drift:** 3 of the last 5 matched planned workouts have actual pace faster than `planned.targetPaceMinPerKm` (the fast end of the range)
+6. **Over-performance drift:** 3 of the last 5 matched planned workouts (with non-null planned paces) have actual pace faster than `planned.targetPaceMinPerKm` (the fast end of the range)
 
 ### Priority
 
@@ -93,14 +93,14 @@ Service in `com.runplanner.adjustment` that applies the decision to the plan.
 1. Get current effective VDOT via `VdotHistoryService.getEffectiveVdot()`
 2. Delete all future planned workouts (scheduled date >= today) via `PlannedWorkoutRepository`
 3. Call `TrainingPlanGenerator.generate()` with current VDOT, goal race distance, race date, and today as start date
-4. Associate new workouts with the plan, set `planRevision` to `plan.revision + 1`
-5. Increment `plan.revision` and save
+4. Associate new workouts with the plan: set `trainingPlan`, set `planRevision` to `plan.revision + 1`, and ensure `originalScheduledDate` equals `scheduledDate` (already set by generator)
+5. Save new workouts, increment `plan.revision`, and save plan
 
 ### Minor adjustment
 
 1. Get current effective VDOT
 2. Recalculate pace ranges using `TrainingPaceCalculator.calculate(vdot)`
-3. Update `targetPaceMinPerKm` and `targetPaceMaxPerKm` on all future planned workouts (scheduled date >= today), mapping `WorkoutType.getTrainingZone()` for the pace lookup. REST workouts are skipped (no paces).
+3. Update `targetPaceMinPerKm` and `targetPaceMaxPerKm` on all future planned workouts (scheduled date >= today), mapping `WorkoutType.getTrainingZone()` for the pace lookup. Skip workouts where `workoutType.getTrainingZone()` is null (REST and any future types without a zone).
 4. Save updated workouts
 5. Increment `plan.revision` and save
 
@@ -117,7 +117,7 @@ Orchestrator in `com.runplanner.adjustment`.
 ### Flow
 
 1. Find active plan via `TrainingPlanRepository.findByUserAndStatus(user, ACTIVE)`. If none, return `NONE`.
-2. Get recent matched workouts: planned workouts from the last 2 weeks with their `WorkoutMatch` and `Workout`, ordered by scheduled date. Assembled as `List<MatchedWorkoutContext>`.
+2. Get recent matched workouts: planned workouts with `scheduledDate >= today.minusDays(14) AND scheduledDate < today`, along with their `WorkoutMatch` and `Workout`, ordered by scheduled date. Assembled as `List<MatchedWorkoutContext>`.
 3. Get recent unmatched LONG planned workouts from the last 7 days (scheduled in past 7 days, `WorkoutType.LONG`, no match exists).
 4. Get current effective VDOT via `VdotHistoryService.getEffectiveVdot()`. If no VDOT, return `NONE`.
 5. Get `plan.lastAdjustmentVdot` (or use current VDOT if null — plan was never adjusted).
@@ -139,13 +139,13 @@ Orchestrator in `com.runplanner.adjustment`.
 
 ### TrainingPlan
 
-Add field: `lastAdjustmentVdot` (Double, nullable). Set in `TrainingPlanService.generate()` to the effective VDOT used for generation. Updated by `PlanAdjustmentEngine` after each adjustment.
+Add field: `lastAdjustmentVdot` (Double, nullable). Column is nullable for existing plans. New plans set it in `TrainingPlanService.generate()` to the effective VDOT used for generation. Updated by `PlanAdjustmentEngine` after each adjustment. If null during evaluation, treated as equal to current VDOT (no change).
 
 ## Health Sync Wiring
 
 Add `PlanAdjustmentEngine.evaluate(user)` call in `HealthSyncService.sync()` after step 4 (VDOT from VO2max), before updating `lastSyncedAt`.
 
-Add `adjustmentApplied` field (String: "NONE", "MINOR", "MAJOR") to `HealthSyncResponse`.
+Add `adjustmentApplied` field (String, serialized from `AdjustmentType.name()`: "NONE", "MINOR", "MAJOR") to `HealthSyncResponse`.
 
 ## Testing Strategy
 

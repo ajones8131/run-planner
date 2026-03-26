@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Run Planner reads your workout history, heart rate, and VO2 max to calculate your fitness level and generate personalized training plans.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Run Planner does not write to Apple Health.</string>
 </dict>
 </plist>

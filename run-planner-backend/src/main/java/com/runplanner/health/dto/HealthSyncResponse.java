@@ -5,5 +5,6 @@ public record HealthSyncResponse(
         int workoutsSkipped,
         int workoutsMatched,
         int snapshotsSaved,
-        boolean vdotUpdated
+        boolean vdotUpdated,
+        String adjustmentApplied
 ) {}

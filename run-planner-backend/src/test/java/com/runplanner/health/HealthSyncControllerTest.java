@@ -41,7 +41,7 @@ class HealthSyncControllerTest {
     void sync_returns200WithSummary() throws Exception {
         User u = testUser();
         when(healthSyncService.sync(any(), any()))
-                .thenReturn(new HealthSyncResponse(2, 1, 1, 1, true));
+                .thenReturn(new HealthSyncResponse(2, 1, 1, 1, true, "NONE"));
 
         mockMvc.perform(post("/api/v1/health/sync")
                         .with(user(u))
@@ -60,7 +60,7 @@ class HealthSyncControllerTest {
     void sync_emptyBody_returns200() throws Exception {
         User u = testUser();
         when(healthSyncService.sync(any(), any()))
-                .thenReturn(new HealthSyncResponse(0, 0, 0, 0, false));
+                .thenReturn(new HealthSyncResponse(0, 0, 0, 0, false, "NONE"));
 
         mockMvc.perform(post("/api/v1/health/sync")
                         .with(user(u))

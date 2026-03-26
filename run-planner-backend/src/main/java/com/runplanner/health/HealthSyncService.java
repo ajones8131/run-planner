@@ -1,5 +1,7 @@
 package com.runplanner.health;
 
+import com.runplanner.adjustment.AdjustmentDecision;
+import com.runplanner.adjustment.PlanAdjustmentEngine;
 import com.runplanner.health.dto.HealthSyncRequest;
 import com.runplanner.health.dto.HealthSyncRequest.HealthSnapshotSyncItem;
 import com.runplanner.health.dto.HealthSyncRequest.WorkoutSyncItem;
@@ -27,6 +29,7 @@ public class HealthSyncService {
     private final HealthSnapshotRepository healthSnapshotRepository;
     private final VdotHistoryService vdotHistoryService;
     private final UserRepository userRepository;
+    private final PlanAdjustmentEngine planAdjustmentEngine;
 
     @Transactional
     public HealthSyncResponse sync(User user, HealthSyncRequest request) {
@@ -99,12 +102,16 @@ public class HealthSyncService {
             }
         }
 
-        // 5. Update lastSyncedAt
+        // 5. Run adjustment engine
+        AdjustmentDecision adjustment = planAdjustmentEngine.evaluate(user);
+
+        // 6. Update lastSyncedAt
         user.setLastSyncedAt(Instant.now());
         userRepository.save(user);
 
-        // 6. Return summary
+        // 7. Return summary
         return new HealthSyncResponse(
-                workoutsSaved, workoutsSkipped, workoutsMatched, snapshotsSaved, vdotUpdated);
+                workoutsSaved, workoutsSkipped, workoutsMatched, snapshotsSaved, vdotUpdated,
+                adjustment.type().name());
     }
 }

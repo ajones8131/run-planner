@@ -1,5 +1,8 @@
 package com.runplanner.health;
 
+import com.runplanner.adjustment.AdjustmentDecision;
+import com.runplanner.adjustment.AdjustmentType;
+import com.runplanner.adjustment.PlanAdjustmentEngine;
 import com.runplanner.health.dto.HealthSyncRequest;
 import com.runplanner.health.dto.HealthSyncRequest.HealthSnapshotSyncItem;
 import com.runplanner.health.dto.HealthSyncRequest.WorkoutSyncItem;
@@ -35,6 +38,7 @@ class HealthSyncServiceTest {
     @Mock private HealthSnapshotRepository healthSnapshotRepository;
     @Mock private VdotHistoryService vdotHistoryService;
     @Mock private UserRepository userRepository;
+    @Mock private PlanAdjustmentEngine planAdjustmentEngine;
 
     @InjectMocks private HealthSyncService service;
 
@@ -68,6 +72,8 @@ class HealthSyncServiceTest {
         });
         when(workoutMatcher.match(any())).thenReturn(Optional.empty());
 
+        when(planAdjustmentEngine.evaluate(any())).thenReturn(AdjustmentDecision.none());
+
         HealthSyncRequest request = new HealthSyncRequest(
                 List.of(workoutItem("new-1"), workoutItem("dup-1")), null);
 
@@ -90,6 +96,8 @@ class HealthSyncServiceTest {
         when(workoutMatcher.match(any())).thenReturn(
                 Optional.of(WorkoutMatch.builder().complianceScore(0.9).build()));
 
+        when(planAdjustmentEngine.evaluate(any())).thenReturn(AdjustmentDecision.none());
+
         HealthSyncRequest request = new HealthSyncRequest(
                 List.of(workoutItem("w-1")), null);
 
@@ -109,6 +117,8 @@ class HealthSyncServiceTest {
         });
         when(healthSnapshotRepository.findFirstByUserAndVo2maxEstimateIsNotNullOrderByRecordedAtDesc(user))
                 .thenReturn(Optional.empty());
+
+        when(planAdjustmentEngine.evaluate(any())).thenReturn(AdjustmentDecision.none());
 
         HealthSyncRequest request = new HealthSyncRequest(
                 null, List.of(snapshotItem(48.5), snapshotItem(null)));
@@ -132,6 +142,8 @@ class HealthSyncServiceTest {
         when(vdotHistoryService.recordCalculation(eq(user), eq(45.0), eq(48.5), isNull(), eq(snapshot.getId())))
                 .thenReturn(VdotHistory.builder().newVdot(48.5).build());
 
+        when(planAdjustmentEngine.evaluate(any())).thenReturn(AdjustmentDecision.none());
+
         HealthSyncRequest request = new HealthSyncRequest(
                 null, List.of(snapshotItem(48.5)));
 
@@ -152,6 +164,8 @@ class HealthSyncServiceTest {
                 .thenReturn(Optional.of(snapshot));
         when(vdotHistoryService.getEffectiveVdot(user)).thenReturn(Optional.of(48.5));
 
+        when(planAdjustmentEngine.evaluate(any())).thenReturn(AdjustmentDecision.none());
+
         HealthSyncRequest request = new HealthSyncRequest(
                 null, List.of(snapshotItem(48.5)));
 
@@ -171,6 +185,8 @@ class HealthSyncServiceTest {
         });
         when(healthSnapshotRepository.findFirstByUserAndVo2maxEstimateIsNotNullOrderByRecordedAtDesc(user))
                 .thenReturn(Optional.empty());
+
+        when(planAdjustmentEngine.evaluate(any())).thenReturn(AdjustmentDecision.none());
 
         HealthSyncRequest request = new HealthSyncRequest(
                 null, List.of(snapshotItem(null)));
@@ -194,6 +210,8 @@ class HealthSyncServiceTest {
         when(vdotHistoryService.recordCalculation(eq(user), eq(0.0), eq(48.5), isNull(), eq(snapshot.getId())))
                 .thenReturn(VdotHistory.builder().newVdot(48.5).build());
 
+        when(planAdjustmentEngine.evaluate(any())).thenReturn(AdjustmentDecision.none());
+
         HealthSyncRequest request = new HealthSyncRequest(
                 null, List.of(snapshotItem(48.5)));
 
@@ -206,6 +224,7 @@ class HealthSyncServiceTest {
     @Test
     void sync_updatesLastSyncedAt() {
         User user = user();
+        when(planAdjustmentEngine.evaluate(any())).thenReturn(AdjustmentDecision.none());
 
         HealthSyncRequest request = new HealthSyncRequest(null, null);
         service.sync(user, request);
@@ -217,6 +236,7 @@ class HealthSyncServiceTest {
     @Test
     void sync_emptyRequest_returnsZerosAndUpdatesLastSynced() {
         User user = user();
+        when(planAdjustmentEngine.evaluate(any())).thenReturn(AdjustmentDecision.none());
 
         HealthSyncRequest request = new HealthSyncRequest(List.of(), List.of());
         HealthSyncResponse response = service.sync(user, request);
@@ -232,6 +252,7 @@ class HealthSyncServiceTest {
     @Test
     void sync_nullLists_treatedAsEmpty() {
         User user = user();
+        when(planAdjustmentEngine.evaluate(any())).thenReturn(AdjustmentDecision.none());
 
         HealthSyncRequest request = new HealthSyncRequest(null, null);
         HealthSyncResponse response = service.sync(user, request);
@@ -260,6 +281,7 @@ class HealthSyncServiceTest {
         when(vdotHistoryService.getEffectiveVdot(user)).thenReturn(Optional.of(48.0));
         when(vdotHistoryService.recordCalculation(any(), anyDouble(), anyDouble(), any(), any()))
                 .thenReturn(VdotHistory.builder().newVdot(50.0).build());
+        when(planAdjustmentEngine.evaluate(any())).thenReturn(AdjustmentDecision.none());
 
         HealthSyncRequest request = new HealthSyncRequest(
                 List.of(workoutItem("w-1")),
@@ -271,5 +293,18 @@ class HealthSyncServiceTest {
         assertThat(response.snapshotsSaved()).isEqualTo(1);
         assertThat(response.vdotUpdated()).isTrue();
         verify(userRepository).save(user);
+    }
+
+    @Test
+    void sync_triggersAdjustmentEngine() {
+        User user = user();
+        when(planAdjustmentEngine.evaluate(user))
+                .thenReturn(new AdjustmentDecision(AdjustmentType.MINOR, "pace drift"));
+
+        HealthSyncRequest request = new HealthSyncRequest(null, null);
+        HealthSyncResponse response = service.sync(user, request);
+
+        assertThat(response.adjustmentApplied()).isEqualTo("MINOR");
+        verify(planAdjustmentEngine).evaluate(user);
     }
 }

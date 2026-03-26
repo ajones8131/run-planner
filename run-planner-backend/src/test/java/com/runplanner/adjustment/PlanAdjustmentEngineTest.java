@@ -89,7 +89,6 @@ class PlanAdjustmentEngineTest {
                 .thenReturn(Optional.of(p));
         when(plannedWorkoutRepository.findAllByTrainingPlanAndScheduledDateBetweenOrderByScheduledDate(
                 eq(p), any(), any())).thenReturn(List.of());
-        when(workoutMatchRepository.findByPlannedWorkoutIn(anyList())).thenReturn(List.of());
         when(vdotHistoryService.getEffectiveVdot(user)).thenReturn(Optional.of(53.0));
         when(adjustmentEvaluator.evaluate(anyList(), anyList(), eq(53.0), eq(50.0)))
                 .thenReturn(new AdjustmentDecision(AdjustmentType.MAJOR, "VDOT changed"));
@@ -110,7 +109,6 @@ class PlanAdjustmentEngineTest {
                 .thenReturn(Optional.of(p));
         when(plannedWorkoutRepository.findAllByTrainingPlanAndScheduledDateBetweenOrderByScheduledDate(
                 eq(p), any(), any())).thenReturn(List.of());
-        when(workoutMatchRepository.findByPlannedWorkoutIn(anyList())).thenReturn(List.of());
         when(vdotHistoryService.getEffectiveVdot(user)).thenReturn(Optional.of(50.0));
         when(adjustmentEvaluator.evaluate(anyList(), anyList(), eq(50.0), eq(50.0)))
                 .thenReturn(AdjustmentDecision.none());
@@ -130,7 +128,6 @@ class PlanAdjustmentEngineTest {
                 .thenReturn(Optional.of(p));
         when(plannedWorkoutRepository.findAllByTrainingPlanAndScheduledDateBetweenOrderByScheduledDate(
                 eq(p), any(), any())).thenReturn(List.of());
-        when(workoutMatchRepository.findByPlannedWorkoutIn(anyList())).thenReturn(List.of());
         when(vdotHistoryService.getEffectiveVdot(user)).thenReturn(Optional.of(50.0));
         when(adjustmentEvaluator.evaluate(anyList(), anyList(), eq(50.0), eq(50.0)))
                 .thenReturn(AdjustmentDecision.none());
